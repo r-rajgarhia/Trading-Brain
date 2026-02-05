@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import logging
 from typing import Optional, Dict, Any
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -86,19 +87,45 @@ if not all_stocks:
 
 # Sidebar - Portfolio
 with st.sidebar:
-    st.markdown("## 💼 Portfolio Summary")
+    st.markdown("## 💼 Live Portfolio")
+    
+    # Add an auto-refresh toggle for "Actual Trading" feel
+    #auto_refresh = st.checkbox("🔄 Live Tracking", value=True)
+    
     stats = get_portfolio_stats()
     if stats:
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("💰 Cash", f"₹{stats['cash']:,.0f}")
-            st.metric("📊 Position", f"{stats['position']:.2f}")
-        with col2:
-            pnl_color = "🟢" if stats['total_pnl'] >= 0 else "🔴"
-            st.metric("💵 Total Value", f"₹{stats['total_value']:,.0f}")
-            st.metric(f"{pnl_color} P&L", f"₹{stats['total_pnl']:,.0f}")
-        st.divider()
+        # Visualizing the P&L with a Delta
+        pnl_val = stats['total_pnl']
+        st.metric(
+            label="Total Equity", 
+            value=f"₹{stats['total_value']:,.2f}",
+            delta=f"₹{pnl_val:,.2f}",
+            delta_color="normal"
+        )
+        
+        # New Feature: Trade Capacity indicator
+        if stats['cash'] > 0:
+            st.info(f"Buying Power: ₹{stats['cash']:,.2f}")
+        else:
+            st.warning(f"In Position: {stats['position']:.2f} units")
+
+    # Calculate how much is 'Locked' in reserve
+reserve_amt = 100000 * 0.10  # 10% of initial
+available_to_trade = stats['cash'] - reserve_amt
+
+st.sidebar.write(f"### 🛡️ Reserve: ₹{reserve_amt:,.2f}")
+if available_to_trade > 0:
+    st.sidebar.success(f"Available to Invest: ₹{available_to_trade:,.2f}")
+else:
+    st.sidebar.error("Emergency Reserve Reached: No more buys allowed.")
+
+# Visualizing the 10% allocation limit
+st.sidebar.progress(min(available_to_trade / 100000, 1.0) if available_to_trade > 0 else 0)
+
+# In app.py sidebar
+stats = get_portfolio_stats()
+st.sidebar.metric("Emergency Reserve", "₹10,000", help="This 10% is never touched for trading.")
+st.sidebar.metric("Current Cash", f"₹{stats['cash']:,.2f}")
 
 with st.container():
     st.markdown("### 🔍 Stock Analysis")
